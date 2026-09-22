@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "StudyPilot"
+description = "An iOS-first academic operating system for university students that turns courses, deadlines, and available time into an adaptive study plan."
+version = "1.0.0"
+id = "artifacts/studypilot"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 25166
+
+[services.development]
+run = "pnpm --filter @workspace/studypilot run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/studypilot", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/studypilot", "run", "serve" ]
+
+[services.env]
+PORT = "25166"
+BASE_PATH = "/"

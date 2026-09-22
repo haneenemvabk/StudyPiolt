@@ -1,6 +1,6 @@
-# [Project name]
+# StudyPilot
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+An iOS-first academic planning app that turns a student’s courses, deadlines, and available time into an adaptive daily study plan.
 
 ## Run & Operate
 
@@ -22,23 +22,34 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/studypilot/app/` — Expo Router screens for onboarding, Home/Now, Planner, Courses, Progress, Profile, focus sessions, and Pro plan presentation.
+- `artifacts/studypilot/context/StudyPilotContext.tsx` — local app state, demo semester data, recommendation ranking, and AsyncStorage persistence.
+- `artifacts/studypilot/constants/colors.ts` — StudyPilot light/dark semantic colors.
+- `artifacts/studypilot/assets/images/icon.png` — conceptual StudyPilot app icon.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Phase 1 is local-first with AsyncStorage so the core planning loop works without requiring an account or network service.
+- Recommendations rank unfinished work using priority and deadline, while generated sessions stay within the declared daily availability.
+- Demo data is opt-in from onboarding and can be removed from Profile; it is never mixed silently into a fresh workspace.
+- AI, cloud sync, notifications, and StoreKit are intentionally staged behind the working local MVP.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Onboarding captures an initial course and study availability.
+- Home answers “What should I do now?” with a ranked next best action and today’s sessions.
+- Planner supports generated sessions and adding tasks; Courses supports course CRUD and topic review toggles.
+- Progress shows study time, task completion, course progress, and descriptive exam-readiness categories.
+- Profile includes local data controls and a Pro subscription presentation prepared for future StoreKit wiring.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- The user wants the product built directly without manually writing code.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Expo workflow is managed as `artifacts/studypilot: expo`; use the workflow rather than starting Expo manually.
+- Native API and subscription integrations are not connected in this MVP; keep the local-first flow functional while adding them.
 
 ## Pointers
 
