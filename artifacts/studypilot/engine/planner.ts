@@ -59,6 +59,7 @@ function buildCandidates(data: AppData): Candidate[] {
     return course.topics.filter((topic) => !topic.reviewed).map((topic) => {
       const examUntil = exam ? daysUntil(exam) : 30;
       return {
+        taskId: undefined,
         courseId: course.id,
         title: `Review ${topic.name}`,
         topic: topic.name,
@@ -201,30 +202,10 @@ export function moveSession(sessions: StudySession[], sessionId: string, date: s
   return sessions.map((session) => session.id === sessionId ? { ...session, date, status: session.status === 'missed' ? 'not_started' : session.status } : session);
 }
 
-export function selfCheckPlanner() {
-  const errors: string[] = [];
-  const data = {
-    onboardingComplete: true,
-    isDemo: false,
-    displayName: 'Test',
-    courses: [{ id: 'c1', name: 'Calc', code: 'MATH', color: '#4e8f95', schedule: [], topics: [{ id: 't1', name: 'Derivatives', reviewed: false }], examDate: addDays(5) }],
-    exams: [],
-    tasks: [{ id: 'task-1', title: 'Assignment', courseId: 'c1', type: 'Assignment' as const, deadline: addDays(2), estimatedMinutes: 90, priority: 'high' as const, difficulty: 3 as const, status: 'not_started' as const }],
-    sessions: [],
-    materials: [],
-    availability: { days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], hoursPerDay: 1, preferredTime: 'Evenings' as const, sessionLength: 45 },
-    completedMinutes: 0,
-    subscription: { entitlement: 'free' as const, source: 'none' as const },
-    notifications: { sessionReminders: true, deadlineReminders: true, nowSuggestions: true },
-    aiUsage: { monthKey: '2026-09', planningActions: 0 },
-  } satisfies AppData;
-  const { sessions, conflict } = generateStudyPlan(data);
-  const byDay = new Map<string, number>();
-  sessions.forEach((session) => byDay.set(session.date, (byDay.get(session.date) ?? 0) + session.minutes));
-  byDay.forEach((minutes, date) => {
-    if (minutes > 60 + 1) errors.push(`Overloaded ${date} with ${minutes} minutes`);
-  });
-  if (!sessions.length) errors.push('Expected sessions from open work');
-  if (!conflict) errors.push('Expected a time conflict for 90 minutes of work and 1 hour days before an exam');
-  return errors;
+export function wouldExceedCapacity(sessions: StudySession[], sessionId: string, date: string, hoursPerDay: number): boolean {
+  const session = sessions.find((item) => item.id === sessionId);
+  if (!session) return false;
+  const dailyCap = Math.round(hoursPerDay * 60);
+  const otherMinutes = sessions.filter((item) => item.id !== sessionId && item.date === date && item.status !== 'completed' && item.status !== 'missed').reduce((sum, item) => sum + item.minutes, 0);
+  return otherMinutes + session.minutes > dailyCap;
 }

@@ -21,16 +21,37 @@ export default function SessionScreen() {
   const session = sessions.find((item) => item.id === sessionId);
   const task = tasks.find((item) => item.id === (session?.taskId ?? taskId)) ?? tasks[0];
   const course = courses.find((item) => item.id === (session?.courseId ?? task?.courseId));
-  const initial = (session?.minutes ?? task?.estimatedMinutes ?? 45) * 60;
-  const [seconds, setSeconds] = useState(initial);
+  const totalSeconds = (session?.minutes ?? task?.estimatedMinutes ?? 45) * 60;
+  const [seconds, setSeconds] = useState(totalSeconds);
   const [running, setRunning] = useState(true);
+  const [pausedAt, setPausedAt] = useState<number | null>(null);
+  const [endTimestamp, setEndTimestamp] = useState<number>(() => Date.now() + totalSeconds * 1000);
   const [notes, setNotes] = useState(task?.notes ?? '');
   const [askFeedback, setAskFeedback] = useState(false);
+
   useEffect(() => {
     if (!running || askFeedback) return;
-    const timer = setInterval(() => setSeconds((value) => Math.max(0, value - 1)), 1000);
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((endTimestamp - Date.now()) / 1000));
+      setSeconds(remaining);
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [running, askFeedback]);
+  }, [running, askFeedback, endTimestamp]);
+
+  const toggleRunning = () => {
+    setRunning((prev) => {
+      if (prev) {
+        setPausedAt(Date.now());
+      } else if (pausedAt) {
+        setEndTimestamp(Date.now() + seconds * 1000);
+        setPausedAt(null);
+      }
+      return !prev;
+    });
+  };
+
   const clock = useMemo(() => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`, [seconds]);
   if (!task && !session) return <View style={[styles.container, { backgroundColor: colors.background }]}><Text style={{ color: colors.foreground }}>No task selected.</Text></View>;
   const finish = (feedback?: SessionFeedback) => {
@@ -71,8 +92,8 @@ export default function SessionScreen() {
         <TextInput value={notes} onChangeText={setNotes} placeholder="Optional notes" placeholderTextColor="#7f93a8" style={styles.notes} multiline />
       </View>
       <View style={styles.actions}>
-        <Button label={running ? 'Pause' : 'Resume'} onPress={() => setRunning((value) => !value)} variant="ghost" icon={running ? 'pause' : 'play'} />
-        <Button label="Mark as difficult" variant="secondary" onPress={() => { if (session) recordFeedback(session.id, 'difficult'); }} />
+        <Button label={running ? 'Pause' : 'Resume'} onPress={toggleRunning} variant="ghost" icon={running ? 'pause' : 'play'} />
+        <Button label="Mark as difficult" variant="secondary" onPress={() => { if (session) recordFeedback(session.id, 'difficult'); setAskFeedback(true); }} />
         <Button label="Complete session" onPress={() => setAskFeedback(true)} icon="check" />
       </View>
     </View>

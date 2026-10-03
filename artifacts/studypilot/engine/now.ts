@@ -44,7 +44,8 @@ export function nowReason(data: AppData, session?: StudySession) {
 }
 
 export function availableMinutesToday(data: Pick<AppData, 'availability' | 'sessions'>) {
-  const planned = todaySessions(data).reduce((sum, session) => sum + session.minutes, 0);
   const cap = Math.round(data.availability.hoursPerDay * 60);
-  return { cap, planned, weekday: weekdayLabel(isoDate()) };
+  const planned = todaySessions(data).reduce((sum, session) => sum + session.minutes, 0);
+  const remaining = Math.max(0, cap - planned);
+  return { remaining, cap, planned, weekday: weekdayLabel(isoDate()) };
 }

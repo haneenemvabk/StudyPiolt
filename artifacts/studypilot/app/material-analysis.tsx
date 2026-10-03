@@ -13,7 +13,7 @@ type MaterialKind = 'syllabus' | 'lecture';
 
 export default function MaterialAnalysisScreen() {
   const colors = useColors();
-  const { courses, addTopics, addTask } = useStudyPilot();
+  const { courses, addTopics, addTask, addMaterial } = useStudyPilot();
   const [kind, setKind] = useState<MaterialKind>('syllabus');
   const [courseId, setCourseId] = useState(courses[0]?.id ?? '');
   const [filename, setFilename] = useState('');
@@ -27,10 +27,15 @@ export default function MaterialAnalysisScreen() {
   const confidence = useMemo(() => analysis?.topics.length ? Math.round((analysis.topics.reduce((sum, topic) => sum + topic.confidence, 0) / analysis.topics.length) * 100) : 0, [analysis]);
 
   const pickAndAnalyze = async () => {
+    if (busy) return;
     setError('');
     const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true, multiple: false });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
+    if (asset.size && asset.size > 8 * 1024 * 1024) {
+      setError('That PDF is larger than 8 MB. Choose a smaller file.');
+      return;
+    }
     setFilename(asset.name);
     setBusy(true);
     try {
@@ -51,11 +56,12 @@ export default function MaterialAnalysisScreen() {
   const toggleDeadline = (title: string) => setSelectedDeadlines((current) => current.includes(title) ? current.filter((item) => item !== title) : [...current, title]);
   const confirmFindings = () => {
     if (!analysis) return;
-    if (selectedCourse && selectedTopics.length) addTopics(selectedCourse.id, selectedTopics);
     if (!selectedCourse) {
       Alert.alert('Choose a course first', 'Select the course that owns these findings before confirming them.');
       return;
     }
+    if (selectedTopics.length) addTopics(selectedCourse.id, selectedTopics);
+    addMaterial({ courseId: selectedCourse.id, filename: analysis.filename, kind });
     analysis.deadlines.filter((deadline) => selectedDeadlines.includes(deadline.title) && /^\d{4}-\d{2}-\d{2}$/.test(deadline.dueDate)).forEach((deadline) => {
       const type = deadline.type.toLowerCase().includes('exam') ? 'Exam prep' : deadline.type.toLowerCase().includes('project') ? 'Project' : 'Assignment';
       addTask({ title: deadline.title, courseId: selectedCourse.id, type, deadline: deadline.dueDate, estimatedMinutes: 45, priority: 'medium', difficulty: 2, notes: `Found in ${analysis.filename}. Verify the source before relying on this deadline.` });

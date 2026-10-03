@@ -46,7 +46,7 @@ export default function HomeScreen() {
       <View style={[homeStyles.availability, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={[homeStyles.availabilityIcon, { backgroundColor: colors.secondary }]}><Feather name="clock" size={18} color={colors.primary} /></View>
         <View style={{ flex: 1 }}>
-          <Text style={[homeStyles.availabilityTitle, { color: colors.foreground }]}>{availabilityToday.cap} min available today</Text>
+          <Text style={[homeStyles.availabilityTitle, { color: colors.foreground }]}>{availabilityToday.remaining} min available today</Text>
           <Text style={[homeStyles.availabilityBody, { color: colors.mutedForeground }]}>{availability.preferredTime} · plan stays within {availability.hoursPerDay}h</Text>
         </View>
         <Pressable onPress={() => router.push('/availability')}><Feather name="chevron-right" size={18} color={colors.mutedForeground} /></Pressable>

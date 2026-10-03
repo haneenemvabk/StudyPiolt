@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { addDays, isoDate, makeId, monthKey } from '@/engine/dates';
+import { addDays, isoDate, makeId, monthKey, weekdayLabel } from '@/engine/dates';
 import { consumePlanningUsage, remainingAiActions } from '@/engine/limits';
 import { pickNowSession } from '@/engine/now';
-import { generateStudyPlan, moveSession, redistributeMissed } from '@/engine/planner';
+import { generateStudyPlan, moveSession, redistributeMissed, wouldExceedCapacity } from '@/engine/planner';
 import { courseProgress } from '@/engine/readiness';
 import { DEFAULT_NOTIFICATIONS } from '@/services/notifications';
 import type {
@@ -148,7 +148,7 @@ type ContextValue = AppData & {
   markSessionStatus: (id: string, status: TaskStatus) => void;
   recordFeedback: (sessionId: string, feedback: SessionFeedback) => void;
   rescheduleAutomatically: (sessionId: string) => { ok: boolean; reason?: 'pro-required' | 'ai-limit' };
-  rescheduleManually: (sessionId: string, date: string) => void;
+  rescheduleManually: (sessionId: string, date: string) => { ok: boolean; overload?: boolean; unavailableDay?: boolean };
   clearDemoData: () => void;
   resetAll: () => void;
   activateMockPro: (productId: 'studypilot_pro_monthly' | 'studypilot_pro_yearly') => void;
@@ -169,11 +169,19 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
         try { setData(migrate(JSON.parse(source) as Record<string, unknown>)); } catch { setData(emptyData); }
       }
       setHydrated(true);
+    }).catch(() => {
+      setData(emptyData);
+      setHydrated(true);
     });
   }, []);
 
   useEffect(() => {
-    if (hydrated) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    if (!hydrated) return;
+    try {
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data)).catch(() => undefined);
+    } catch {
+      // Silently ignore serialization failures — state stays in memory
+    }
   }, [data, hydrated]);
 
   const update = (updater: (current: AppData) => AppData) => setData((current) => updater(current));
@@ -311,10 +319,22 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
     haptic();
     return result;
   };
-  const rescheduleManually = (sessionId: string, date: string) => update((current) => ({
-    ...current,
-    sessions: moveSession(current.sessions, sessionId, date),
-  }));
+  const rescheduleManually = (sessionId: string, date: string) => {
+    let result: { ok: boolean; overload?: boolean; unavailableDay?: boolean } = { ok: true };
+    update((current) => {
+      const weekday = weekdayLabel(date);
+      if (!current.availability.days.includes(weekday)) {
+        result = { ok: false, unavailableDay: true };
+        return current;
+      }
+      if (wouldExceedCapacity(current.sessions, sessionId, date, current.availability.hoursPerDay)) {
+        result = { ok: true, overload: true };
+      }
+      return { ...current, sessions: moveSession(current.sessions, sessionId, date) };
+    });
+    haptic();
+    return result;
+  };
   const clearDemoData = () => update((current) => ({ ...emptyData, onboardingComplete: true, availability: current.availability, subscription: current.subscription }));
   const resetAll = () => { setData(emptyData); haptic(); };
   const activateMockPro = (productId: 'studypilot_pro_monthly' | 'studypilot_pro_yearly') => {

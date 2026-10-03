@@ -64,7 +64,12 @@ export default function PlannerScreen() {
         const selected = selectedDay === item.iso;
         return (
           <Pressable key={item.iso} onPress={() => {
-            if (movingId) { rescheduleManually(movingId, item.iso); setMovingId(null); }
+            if (movingId) {
+              const result = rescheduleManually(movingId, item.iso);
+              setMovingId(null);
+              if (result.unavailableDay) Alert.alert('Not a study day', 'That day is not in your available study days. Update your availability in Profile if needed.');
+              else if (result.overload) Alert.alert('Session moved', 'That day now exceeds your daily study capacity. Consider moving another session to balance the load.');
+            }
             else setSelectedDay(item.iso);
           }} style={[styles.dayCell, { backgroundColor: selected ? colors.navy : colors.card, borderColor: colors.border }]}>
             <Text style={{ color: selected ? '#9fbbc2' : colors.mutedForeground, fontSize: 11, fontWeight: '700' }}>{item.day}</Text>
@@ -73,7 +78,7 @@ export default function PlannerScreen() {
           </Pressable>
         );
       })}</View>
-      {movingId ? <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>Tap a day to move the session.</Text> : null}
+      {movingId ? <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>Tap a day to move the session.</Text><Pressable onPress={() => setMovingId(null)}><Text style={{ color: colors.destructive, fontWeight: '700', fontSize: 12 }}>Cancel</Text></Pressable></View> : null}
       <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{selectedDay === isoDate() ? 'Today' : 'Scheduled sessions'}</Text>
       {visibleSessions.length ? (
         <View style={{ gap: 10 }}>{visibleSessions.map((session) => {
