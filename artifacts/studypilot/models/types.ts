@@ -72,6 +72,7 @@ export type StudySession = {
   relatedDeadline?: string;
   status: TaskStatus;
   feedback?: SessionFeedback;
+  notes?: string;
 };
 
 export type UploadedMaterial = {

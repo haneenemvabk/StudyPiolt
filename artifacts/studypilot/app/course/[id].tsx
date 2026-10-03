@@ -1,12 +1,14 @@
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, Field, Header, Pill, ProgressBar, Screen } from '@/components/Shared';
 import { addDays } from '@/engine/dates';
 import { courseProgress, examReadiness } from '@/engine/readiness';
 import { useColors } from '@/hooks/useColors';
 import { useStudyPilot } from '@/context/StudyPilotContext';
+
+const swatches = ['#4e8f95', '#7168a8', '#c68c5a', '#5e9b72', '#b85d68'];
 
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -17,15 +19,33 @@ export default function CourseDetailScreen() {
   const [examTitle, setExamTitle] = useState('');
   const [examOffset, setExamOffset] = useState('14');
   const [taskTitle, setTaskTitle] = useState('');
+  const [showEdit, setShowEdit] = useState(false);
+  const [editName, setEditName] = useState(course?.name ?? '');
+  const [editCode, setEditCode] = useState(course?.code ?? '');
+  const [editInstructor, setEditInstructor] = useState(course?.instructor ?? '');
+  const [editColor, setEditColor] = useState(course?.color ?? swatches[0]);
+
   if (!course) return <Screen><Text style={{ color: colors.foreground }}>Course not found.</Text></Screen>;
   const progress = courseProgress(app, course);
   const readiness = examReadiness(app, course);
   const courseTasks = app.tasks.filter((task) => task.courseId === course.id);
   const courseExams = app.exams.filter((exam) => exam.courseId === course.id);
   const materials = app.materials.filter((material) => material.courseId === course.id);
+
+  const saveEdit = () => {
+    if (!editName.trim() || !editCode.trim()) return;
+    app.updateCourse(course.id, { name: editName.trim(), code: editCode.trim(), instructor: editInstructor.trim(), color: editColor });
+    setShowEdit(false);
+  };
+
   return (
     <Screen>
-      <Header eyebrow={course.code} title={course.name} right={<Pressable onPress={() => router.back()} style={[styles.icon, { backgroundColor: colors.muted }]}><Feather name="x" size={18} color={colors.foreground} /></Pressable>} />
+      <Header eyebrow={course.code} title={course.name} right={
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Pressable onPress={() => setShowEdit(true)} style={[styles.icon, { backgroundColor: colors.muted }]}><Feather name="edit-2" size={16} color={colors.foreground} /></Pressable>
+          <Pressable onPress={() => router.back()} style={[styles.icon, { backgroundColor: colors.muted }]}><Feather name="x" size={18} color={colors.foreground} /></Pressable>
+        </View>
+      } />
       <Text style={{ color: colors.mutedForeground }}>{course.instructor || 'No instructor'} · {course.schedule.map((item) => `${item.day} ${item.start}`).join(' · ') || 'No class times yet'}</Text>
       <View style={styles.row}><Text style={[styles.label, { color: colors.mutedForeground }]}>Progress</Text><Text style={{ color: colors.foreground, fontWeight: '700' }}>{progress}%</Text></View>
       <ProgressBar value={progress} color={course.color} />
@@ -36,16 +56,37 @@ export default function CourseDetailScreen() {
       </View>
       <Text style={[styles.section, { color: colors.foreground }]}>Topics</Text>
       {course.topics.map((topic) => (
-        <Pressable key={topic.id} onPress={() => app.toggleTopic(course.id, topic.id)} style={styles.topicRow}>
-          <Feather name={topic.reviewed ? 'check-circle' : 'circle'} size={16} color={topic.reviewed ? colors.success : colors.mutedForeground} />
-          <Text style={{ color: colors.foreground, textDecorationLine: topic.reviewed ? 'line-through' : 'none' }}>{topic.name}</Text>
-        </Pressable>
+        <View key={topic.id} style={styles.topicRow}>
+          <Pressable onPress={() => app.toggleTopic(course.id, topic.id)} style={styles.topicLeft}>
+            <Feather name={topic.reviewed ? 'check-circle' : 'circle'} size={16} color={topic.reviewed ? colors.success : colors.mutedForeground} />
+            <Text style={{ color: colors.foreground, textDecorationLine: topic.reviewed ? 'line-through' : 'none' }}>{topic.name}</Text>
+          </Pressable>
+        </View>
       ))}
       <Field label="Add topic" value={topicName} onChangeText={setTopicName} placeholder="e.g. Implicit differentiation" />
       <Button label="Add topic" variant="secondary" onPress={() => { if (topicName.trim()) { app.addTopics(course.id, [topicName]); setTopicName(''); } }} />
       <Text style={[styles.section, { color: colors.foreground }]}>Exams & deadlines</Text>
-      {courseExams.map((exam) => <Text key={exam.id} style={{ color: colors.foreground }}>{exam.title} · {exam.date}</Text>)}
-      {courseTasks.map((task) => <Pressable key={task.id} onPress={() => app.updateTaskStatus(task.id, task.status === 'completed' ? 'not_started' : 'completed')}><Text style={{ color: colors.foreground }}>{task.status === 'completed' ? '✓' : '○'} {task.title} · {task.deadline}</Text></Pressable>)}
+      {courseExams.length ? courseExams.map((exam) => (
+        <View key={exam.id} style={[styles.itemRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.foreground, fontWeight: '600' }}>{exam.title}</Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>{exam.date}</Text>
+          </View>
+          <Pressable onPress={() => Alert.alert('Delete this exam?', undefined, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => app.deleteExam(exam.id) }])}>
+            <Feather name="trash-2" size={16} color={colors.destructive} />
+          </Pressable>
+        </View>
+      )) : <Text style={{ color: colors.mutedForeground }}>No exams yet.</Text>}
+      {courseTasks.map((task) => (
+        <View key={task.id} style={[styles.itemRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <Pressable onPress={() => app.updateTaskStatus(task.id, task.status === 'completed' ? 'not_started' : 'completed')} style={{ flex: 1 }}>
+            <Text style={{ color: colors.foreground }}>{task.status === 'completed' ? '✓' : '○'} {task.title} · {task.deadline}</Text>
+          </Pressable>
+          <Pressable onPress={() => Alert.alert('Delete this task?', 'Associated study sessions will also be removed.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => app.deleteTask(task.id) }])}>
+            <Feather name="trash-2" size={16} color={colors.destructive} />
+          </Pressable>
+        </View>
+      ))}
       <Field label="New exam title" value={examTitle} onChangeText={setExamTitle} placeholder="Midterm" />
       <Field label="Days from today" value={examOffset} onChangeText={setExamOffset} placeholder="14" keyboardType="numeric" />
       <Button label="Add exam" variant="secondary" onPress={() => { if (examTitle.trim()) { app.addExam({ courseId: course.id, title: examTitle.trim(), date: addDays(Number(examOffset) || 14) }); setExamTitle(''); } }} />
@@ -55,6 +96,19 @@ export default function CourseDetailScreen() {
       {materials.length ? materials.map((material) => <Text key={material.id} style={{ color: colors.mutedForeground }}>{material.filename} · {material.kind}</Text>) : <Text style={{ color: colors.mutedForeground }}>None yet. Analyze a PDF to add one after confirmation.</Text>}
       <Button label="Analyze PDF" icon="file-text" onPress={() => router.push('/material-analysis')} />
       <Button label="Delete course" variant="ghost" onPress={() => Alert.alert('Delete this course?', 'Tasks and sessions for this course will also be removed.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => { app.deleteCourse(course.id); router.back(); } }])} />
+      <Modal visible={showEdit} animationType="slide" transparent onRequestClose={() => setShowEdit(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modal, { backgroundColor: colors.background }]}>
+            <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: colors.foreground }]}>Edit course</Text><Pressable onPress={() => setShowEdit(false)}><Feather name="x" size={22} color={colors.mutedForeground} /></Pressable></View>
+            <Field label="Course name" value={editName} onChangeText={setEditName} placeholder="e.g. Cognitive Psychology" />
+            <Field label="Course code" value={editCode} onChangeText={setEditCode} placeholder="e.g. PSY201" />
+            <Field label="Instructor (optional)" value={editInstructor} onChangeText={setEditInstructor} placeholder="e.g. Dr. Samir" />
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Course color</Text>
+            <View style={styles.swatches}>{swatches.map((item) => <Pressable key={item} onPress={() => setEditColor(item)} style={[styles.swatch, { backgroundColor: item, borderColor: editColor === item ? colors.foreground : 'transparent' }]} />)}</View>
+            <Button label="Save changes" onPress={saveEdit} icon="check" disabled={!editName.trim() || !editCode.trim()} />
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -65,5 +119,13 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, fontWeight: '700' },
   section: { fontSize: 19, fontWeight: '700', marginTop: 8 },
   card: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 8 },
-  topicRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  topicRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
+  topicLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  itemRow: { borderWidth: 1, borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  modalBackdrop: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
+  modal: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 22, gap: 15, paddingBottom: 38 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  modalTitle: { fontSize: 23, fontWeight: '700' },
+  swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  swatch: { width: 34, height: 34, borderRadius: 17, borderWidth: 3 },
 });

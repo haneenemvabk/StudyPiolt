@@ -9,7 +9,7 @@ import { useStudyPilot } from '@/context/StudyPilotContext';
 
 export default function ProfileScreen() {
   const colors = useColors();
-  const { availability, isDemo, courses, subscription, remainingAiActions, clearDemoData, resetAll } = useStudyPilot();
+  const { availability, isDemo, displayName, courses, subscription, remainingAiActions, clearDemoData, resetAll } = useStudyPilot();
   const confirmReset = () => Alert.alert('Delete account data?', 'This removes courses, tasks, plans, and local files from this device. Cloud accounts are not enabled in this MVP.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: resetAll }]);
   const rows = [
     { icon: 'clock' as const, title: 'Study availability', body: `${availability.hoursPerDay} hours · ${availability.days.join(', ')}`, href: '/availability' },
@@ -23,7 +23,7 @@ export default function ProfileScreen() {
       <View style={[styles.identity, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={[styles.bigAvatar, { backgroundColor: colors.primary }]}><Text style={{ color: colors.primaryForeground, fontWeight: '800', fontSize: 24 }}>S</Text></View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.identityName, { color: colors.foreground }]}>Student workspace</Text>
+          <Text style={[styles.identityName, { color: colors.foreground }]}>{displayName || 'Student workspace'}</Text>
           <Text style={[styles.identityMeta, { color: colors.mutedForeground }]}>{courses.length} courses · local mode · {Number.isFinite(remainingAiActions) ? `${remainingAiActions}/${SUBSCRIPTION_CONFIG.freeAiPlanningPerMonth} AI plans` : 'unlimited AI plans'}</Text>
         </View>
         <Pill label={subscription.entitlement === 'pro' ? 'PRO' : 'FREE'} color={colors.primary} />

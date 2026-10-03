@@ -139,6 +139,9 @@ type ContextValue = AppData & {
   updateTaskStatus: (id: string, status: TaskStatus) => void;
   addExam: (exam: Omit<Exam, 'id'>) => void;
   updateExam: (id: string, patch: Partial<Exam>) => void;
+  deleteExam: (id: string) => void;
+  deleteTask: (id: string) => void;
+  updateSessionNotes: (id: string, notes: string) => void;
   toggleTopic: (courseId: string, topicId: string) => void;
   addTopics: (courseId: string, topicNames: string[], source?: Course['topics'][number]['source']) => void;
   addMaterial: (material: Omit<UploadedMaterial, 'id' | 'addedAt'>) => void;
@@ -253,6 +256,25 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
     });
     return { ...current, exams, courses };
   });
+  const deleteExam = (id: string) => update((current) => {
+    const exam = current.exams.find((item) => item.id === id);
+    const exams = current.exams.filter((item) => item.id !== id);
+    const courses = exam ? current.courses.map((course) => {
+      if (course.id !== exam.courseId) return course;
+      const next = exams.filter((item) => item.courseId === course.id).map((item) => item.date).sort()[0];
+      return next ? { ...course, examDate: next } : { ...course, examDate: undefined };
+    }) : current.courses;
+    return { ...current, exams, courses };
+  });
+  const deleteTask = (id: string) => update((current) => ({
+    ...current,
+    tasks: current.tasks.filter((task) => task.id !== id),
+    sessions: current.sessions.filter((session) => session.taskId !== id),
+  }));
+  const updateSessionNotes = (id: string, notes: string) => update((current) => ({
+    ...current,
+    sessions: current.sessions.map((session) => session.id === id ? { ...session, notes } : session),
+  }));
   const toggleTopic = (courseId: string, topicId: string) => update((current) => ({
     ...current,
     courses: current.courses.map((course) => course.id === courseId ? { ...course, topics: course.topics.map((topic) => topic.id === topicId ? { ...topic, reviewed: !topic.reviewed } : topic) } : course),
@@ -361,6 +383,9 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
       updateTaskStatus,
       addExam,
       updateExam,
+      deleteExam,
+      deleteTask,
+      updateSessionNotes,
       toggleTopic,
       addTopics,
       addMaterial,

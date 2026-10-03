@@ -12,7 +12,7 @@ const types: TaskType[] = ['Assignment', 'Exam prep', 'Reading', 'Lecture review
 
 export default function PlannerScreen() {
   const colors = useColors();
-  const { courses, tasks, sessions, availability, generatePlan, addTask, markSessionStatus, rescheduleAutomatically, rescheduleManually, remainingAiActions } = useStudyPilot();
+  const { courses, tasks, sessions, availability, generatePlan, addTask, markSessionStatus, rescheduleAutomatically, rescheduleManually, remainingAiActions, updateTaskStatus, deleteTask } = useStudyPilot();
   const [showAdd, setShowAdd] = useState(false);
   const [upgrade, setUpgrade] = useState(false);
   const [title, setTitle] = useState('');
@@ -107,15 +107,21 @@ export default function PlannerScreen() {
         <EmptyState icon="calendar" title="No plan yet" body="Generate a realistic plan from your open tasks and available study time." action={<Button label="Generate my plan" onPress={onGenerate} icon="zap" />} />
       )}
       <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Open tasks</Text>
-      {tasks.filter((task) => task.status !== 'completed').map((task) => {
+      {tasks.filter((task) => task.status !== 'completed').length ? tasks.filter((task) => task.status !== 'completed').map((task) => {
         const course = courses.find((item) => item.id === task.courseId);
         return (
           <View key={task.id} style={[styles.taskRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
-            <Text style={[styles.sessionTitle, { color: colors.foreground }]}>{task.title}</Text>
-            <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>{course?.code} · {task.type} · due {task.deadline} · {task.status.replace('_', ' ')}</Text>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.sessionTitle, { color: colors.foreground }]}>{task.title}</Text>
+              <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>{course?.code} · {task.type} · due {task.deadline} · {task.status.replace('_', ' ')}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable onPress={() => updateTaskStatus(task.id, 'completed')}><Text style={{ color: colors.success, fontWeight: '700', fontSize: 12 }}>Done</Text></Pressable>
+              <Pressable onPress={() => Alert.alert('Delete this task?', 'Associated study sessions will also be removed.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => deleteTask(task.id) }])}><Text style={{ color: colors.destructive, fontWeight: '700', fontSize: 12 }}>Delete</Text></Pressable>
+            </View>
           </View>
         );
-      })}
+      }) : <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>No open tasks. Add one or generate a plan.</Text>}
       <UpgradePrompt visible={upgrade} onClose={() => setUpgrade(false)} title="Automatic rescheduling is a Pro feature." body="Let StudyPilot rebuild your schedule when you miss a study session, and unlock more monthly AI planning actions." />
       <Modal visible={showAdd} animationType="slide" transparent onRequestClose={() => setShowAdd(false)}>
         <View style={styles.modalBackdrop}>
@@ -152,7 +158,7 @@ const styles = StyleSheet.create({
   sessionTitle: { fontSize: 15, fontWeight: '700' },
   sessionCourse: { fontSize: 12, fontWeight: '600', lineHeight: 18 },
   actions: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  taskRow: { borderWidth: 1, borderRadius: 14, padding: 12, gap: 4 },
+  taskRow: { borderWidth: 1, borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
   modalBackdrop: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
   modal: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 22, gap: 15, paddingBottom: 38 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },

@@ -17,7 +17,7 @@ const feedbackOptions: { id: SessionFeedback; label: string }[] = [
 export default function SessionScreen() {
   const colors = useColors();
   const { sessionId, taskId } = useLocalSearchParams<{ sessionId?: string; taskId?: string }>();
-  const { tasks, courses, sessions, markSessionStatus, updateTaskStatus, recordFeedback } = useStudyPilot();
+  const { tasks, courses, sessions, markSessionStatus, updateTaskStatus, recordFeedback, updateSessionNotes } = useStudyPilot();
   const session = sessions.find((item) => item.id === sessionId);
   const task = tasks.find((item) => item.id === (session?.taskId ?? taskId)) ?? tasks[0];
   const course = courses.find((item) => item.id === (session?.courseId ?? task?.courseId));
@@ -56,6 +56,7 @@ export default function SessionScreen() {
   if (!task && !session) return <View style={[styles.container, { backgroundColor: colors.background }]}><Text style={{ color: colors.foreground }}>No task selected.</Text></View>;
   const finish = (feedback?: SessionFeedback) => {
     if (session) {
+      if (notes.trim()) updateSessionNotes(session.id, notes.trim());
       markSessionStatus(session.id, 'completed');
       if (feedback) recordFeedback(session.id, feedback);
     } else if (task) updateTaskStatus(task.id, 'completed');

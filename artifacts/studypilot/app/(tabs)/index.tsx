@@ -53,7 +53,7 @@ export default function HomeScreen() {
       </View>
       <View style={homeStyles.sectionHeading}><Text style={[homeStyles.sectionTitle, { color: colors.foreground }]}>Today’s plan</Text><Text style={[homeStyles.sectionMeta, { color: colors.mutedForeground }]}>{todays.length} sessions</Text></View>
       <View style={{ gap: 10 }}>
-        {extras.length || todays.length ? todays.map((session, index) => {
+        {extras.length ? extras.map((session, index) => {
           const course = courses.find((item) => item.id === session.courseId);
           const task = tasks.find((item) => item.id === session.taskId);
           return (
