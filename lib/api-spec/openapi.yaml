@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: ai
+    description: Secure AI-powered academic material analysis
 paths:
   /healthz:
     get:
@@ -24,6 +26,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /ai/analyze-material:
+    post:
+      operationId: analyzeAcademicMaterial
+      tags: [ai]
+      summary: Analyze a syllabus or lecture PDF
+      description: Extracts reviewable academic findings through the server-side AI service. Findings are suggestions and require user confirmation before becoming course data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeMaterialInput"
+      responses:
+        "200":
+          description: Structured findings for user review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyzeMaterialOutput"
+        "400":
+          description: Invalid material or unsupported file
+        "502":
+          description: AI analysis failed
 components:
   schemas:
     HealthStatus:
@@ -33,4 +58,82 @@ components:
           type: string
       required:
         - status
+    AnalyzeMaterialInput:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [syllabus, lecture]
+        filename:
+          type: string
+        courseName:
+          type: string
+        contentBase64:
+          type: string
+          description: Base64-encoded PDF content. Never store this value.
+        text:
+          type: string
+          description: Optional extracted text for clients that already have a text layer.
+      required:
+        - kind
+        - filename
+    AnalyzeMaterialOutput:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [syllabus, lecture]
+        filename:
+          type: string
+        summary:
+          type: string
+        courseSuggestion:
+          type: object
+          properties:
+            name: { type: string }
+            code: { type: string }
+            instructor: { type: string }
+          required: [name, code]
+        topics:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyzedTopic"
+        deadlines:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyzedDeadline"
+        studySuggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudySuggestion"
+        warnings:
+          type: array
+          items: { type: string }
+        sourceTextChars:
+          type: integer
+      required: [kind, filename, summary, topics, deadlines, studySuggestions, warnings, sourceTextChars]
+    AnalyzedTopic:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        confidence: { type: number }
+        evidence: { type: string }
+      required: [title, description, confidence, evidence]
+    AnalyzedDeadline:
+      type: object
+      properties:
+        title: { type: string }
+        type: { type: string }
+        dueDate: { type: string }
+        confidence: { type: number }
+        evidence: { type: string }
+      required: [title, type, dueDate, confidence, evidence]
+    StudySuggestion:
+      type: object
+      properties:
+        title: { type: string }
+        reason: { type: string }
+        estimatedMinutes: { type: integer }
+      required: [title, reason, estimatedMinutes]
 

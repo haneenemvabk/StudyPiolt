@@ -7,8 +7,18 @@
     "icon": "./assets/images/icon.png",
     "scheme": "studypilot",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#13213a"
+    },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.studypilot.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSUserNotificationsUsageDescription": "StudyPilot can remind you about study sessions and deadlines."
+      }
     },
     "android": {},
     "web": {

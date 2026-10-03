@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "slug": "studypiolt",
+    "extra": {
+      "eas": {
+        "projectId": "4abff346-5881-4405-bba1-e597344d0526"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.haneenembabisteam.studypiolt",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

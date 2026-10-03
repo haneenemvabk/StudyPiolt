@@ -1,17 +1,85 @@
 import { Feather } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Header, Pill, ProgressBar, Screen } from '@/components/Shared';
+import { router } from 'expo-router';
+import { Button, Header, Pill, ProgressBar, Screen } from '@/components/Shared';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
+import { studyInsights } from '@/engine/insights';
+import { canViewAdvancedInsights, canViewExamReadiness } from '@/engine/limits';
+import { courseProgress, examReadiness } from '@/engine/readiness';
 import { useColors } from '@/hooks/useColors';
 import { useStudyPilot } from '@/context/StudyPilotContext';
 
 export default function ProgressScreen() {
   const colors = useColors();
-  const { courses, tasks, completedMinutes, sessions } = useStudyPilot();
+  const app = useStudyPilot();
+  const { courses, tasks, completedMinutes, sessions } = app;
+  const [upgrade, setUpgrade] = useState(false);
   const completedTasks = tasks.filter((task) => task.status === 'completed').length;
   const planned = sessions.length;
   const completion = planned ? Math.round((sessions.filter((session) => session.status === 'completed').length / planned) * 100) : 0;
-  return <Screen><Header eyebrow="Your momentum" title="Progress" /><View style={styles.statGrid}><View style={[styles.stat, { backgroundColor: colors.navy }]}><Feather name="clock" size={17} color={colors.primary} /><Text style={styles.statValue}>{Math.round(completedMinutes / 60 * 10) / 10}h</Text><Text style={styles.statLabel}>study time</Text></View><View style={[styles.stat, { backgroundColor: colors.secondary }]}><Feather name="check-circle" size={17} color={colors.primary} /><Text style={[styles.statValue, { color: colors.secondaryForeground }]}>{completedTasks}</Text><Text style={[styles.statLabel, { color: colors.mutedForeground }]}>tasks done</Text></View><View style={[styles.stat, { backgroundColor: colors.lilac }]}><Feather name="trending-up" size={17} color={colors.lilacForeground} /><Text style={[styles.statValue, { color: colors.lilacForeground }]}>{completion}%</Text><Text style={[styles.statLabel, { color: colors.lilacForeground }]}>plan follow-through</Text></View></View><View style={styles.headingRow}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Course progress</Text><Text style={[styles.sectionMeta, { color: colors.mutedForeground }]}>{courses.length} courses</Text></View><View style={{ gap: 14 }}>{courses.map((course) => <View key={course.id} style={[styles.courseRow, { backgroundColor: colors.card, borderColor: colors.border }]}><View style={[styles.dot, { backgroundColor: course.color }]} /><View style={{ flex: 1, gap: 8 }}><View style={styles.courseTop}><Text style={[styles.courseName, { color: colors.foreground }]}>{course.code}</Text><Text style={[styles.coursePercent, { color: course.color }]}>{course.progress}%</Text></View><ProgressBar value={course.progress} color={course.color} /></View></View>)}</View><View style={styles.headingRow}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Exam readiness</Text><Pill label="DESCRIPTIVE ONLY" muted /></View><View style={{ gap: 10 }}>{courses.filter((course) => course.examDate).map((course) => { const days = Math.max(1, Math.ceil((new Date(course.examDate as string).getTime() - Date.now()) / 86400000)); const reviewed = course.topics.filter((topic) => topic.reviewed).length; const ratio = course.topics.length ? reviewed / course.topics.length : course.progress / 100; const label = ratio > 0.7 ? 'Strong preparation' : ratio > 0.45 ? 'Developing' : 'Needs attention'; return <View key={course.id} style={[styles.examCard, { backgroundColor: colors.card, borderColor: colors.border }]}><View style={styles.examTop}><View><Text style={[styles.courseName, { color: colors.foreground }]}>{course.name}</Text><Text style={[styles.examDays, { color: colors.mutedForeground }]}>{days} days remaining</Text></View><Pill label={label} color={label === 'Needs attention' ? colors.warning : colors.primary} /></View><ProgressBar value={ratio * 100} color={course.color} /><Text style={[styles.examReason, { color: colors.mutedForeground }]}>{reviewed} of {course.topics.length || 'your'} topics reviewed. This assessment is based on activity in StudyPilot, not a prediction of exam results.</Text></View>; })}</View></Screen>;
+  const insights = studyInsights(app);
+  return (
+    <Screen>
+      <Header eyebrow="Your momentum" title="Progress" />
+      <View style={styles.statGrid}>
+        <View style={[styles.stat, { backgroundColor: colors.navy }]}><Feather name="clock" size={17} color={colors.primary} /><Text style={styles.statValue}>{Math.round(completedMinutes / 60 * 10) / 10}h</Text><Text style={styles.statLabel}>study time</Text></View>
+        <View style={[styles.stat, { backgroundColor: colors.secondary }]}><Feather name="check-circle" size={17} color={colors.primary} /><Text style={[styles.statValue, { color: colors.secondaryForeground }]}>{completedTasks}</Text><Text style={[styles.statLabel, { color: colors.mutedForeground }]}>tasks done</Text></View>
+        <View style={[styles.stat, { backgroundColor: colors.lilac }]}><Feather name="trending-up" size={17} color={colors.lilacForeground} /><Text style={[styles.statValue, { color: colors.lilacForeground }]}>{completion}%</Text><Text style={[styles.statLabel, { color: colors.lilacForeground }]}>plan follow-through</Text></View>
+      </View>
+      <View style={styles.headingRow}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Course progress</Text><Text style={[styles.sectionMeta, { color: colors.mutedForeground }]}>{courses.length} courses</Text></View>
+      <View style={{ gap: 14 }}>{courses.map((course) => {
+        const value = courseProgress(app, course);
+        return (
+          <View key={course.id} style={[styles.courseRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.dot, { backgroundColor: course.color }]} />
+            <View style={{ flex: 1, gap: 8 }}>
+              <View style={styles.courseTop}><Text style={[styles.courseName, { color: colors.foreground }]}>{course.code}</Text><Text style={[styles.coursePercent, { color: course.color }]}>{value}%</Text></View>
+              <ProgressBar value={value} color={course.color} />
+            </View>
+          </View>
+        );
+      })}</View>
+      <View style={styles.headingRow}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Exam readiness</Text><Pill label="DESCRIPTIVE ONLY" muted /></View>
+      {canViewExamReadiness(app) ? (
+        <View style={{ gap: 10 }}>{courses.filter((course) => course.examDate || app.exams.some((exam) => exam.courseId === course.id)).map((course) => {
+          const ready = examReadiness(app, course);
+          return (
+            <View key={course.id} style={[styles.examCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={styles.examTop}>
+                <View>
+                  <Text style={[styles.courseName, { color: colors.foreground }]}>{course.name}</Text>
+                  <Text style={[styles.examDays, { color: colors.mutedForeground }]}>{ready.daysRemaining ?? '—'} days remaining</Text>
+                </View>
+                <Pill label={ready.level} color={ready.level === 'Needs attention' ? colors.warning : colors.primary} />
+              </View>
+              <ProgressBar value={courseProgress(app, course)} color={course.color} />
+              <Text style={[styles.examReason, { color: colors.mutedForeground }]}>{ready.explanation}</Text>
+            </View>
+          );
+        })}</View>
+      ) : (
+        <View style={[styles.examCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.courseName, { color: colors.foreground }]}>Exam readiness is included in Pro</Text>
+          <Text style={[styles.examReason, { color: colors.mutedForeground }]}>Free still tracks course progress and completed sessions. Pro adds a descriptive readiness snapshot for each exam.</Text>
+          <Button label="See Pro" onPress={() => router.push('/subscription')} variant="secondary" />
+        </View>
+      )}
+      <View style={styles.headingRow}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Study insights</Text></View>
+      {canViewAdvancedInsights(app) ? insights.map((item) => (
+        <View key={item} style={[styles.examCard, { backgroundColor: colors.secondary, borderColor: colors.secondary }]}>
+          <Text style={{ color: colors.secondaryForeground, fontSize: 14, lineHeight: 21 }}>{item}</Text>
+        </View>
+      )) : (
+        <View style={[styles.examCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={{ color: colors.foreground, fontWeight: '700' }}>Deeper observations are a Pro feature</Text>
+          <Text style={[styles.examReason, { color: colors.mutedForeground }]}>They are generated from your actual StudyPilot activity, not psychological claims.</Text>
+          <Button label="Try Pro" onPress={() => setUpgrade(true)} />
+        </View>
+      )}
+      <UpgradePrompt visible={upgrade} onClose={() => setUpgrade(false)} title="Advanced analytics is a Pro feature." body="See observations from your actual study data, such as when you complete sessions and which estimates tend to slip." />
+    </Screen>
+  );
 }
 
 const styles = StyleSheet.create({

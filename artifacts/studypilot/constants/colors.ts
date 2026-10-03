@@ -59,7 +59,7 @@ const colors = {
     input: '#2a3b4e',
     success: '#6ac28d',
     warning: '#e6a36b',
-    navy: '#dce8f2',
+    navy: '#0f1b2e',
     lilac: '#373550',
     lilacForeground: '#d9d5ff',
   },

@@ -14,6 +14,9 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StudyPilotProvider } from '@/context/StudyPilotContext';
+import { setBaseUrl } from '@workspace/api-client-react';
+
+setBaseUrl(process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : null);
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -27,6 +30,11 @@ function RootLayoutNav() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="session" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="subscription" options={{ presentation: 'modal', title: 'StudyPilot Pro' }} />
+      <Stack.Screen name="material-analysis" options={{ presentation: 'modal', title: 'Analyze material' }} />
+      <Stack.Screen name="legal" options={{ presentation: 'modal', title: 'Legal' }} />
+      <Stack.Screen name="availability" options={{ presentation: 'modal', title: 'Availability' }} />
+      <Stack.Screen name="notifications" options={{ presentation: 'modal', title: 'Notifications' }} />
+      <Stack.Screen name="course/[id]" options={{ presentation: 'modal', headerShown: false }} />
     </Stack>
   );
 }
