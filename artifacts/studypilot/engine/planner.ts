@@ -8,6 +8,7 @@ type Candidate = {
   courseId: string;
   title: string;
   topic?: string;
+  type?: Task['type'];
   minutes: number;
   priority: Priority;
   deadline?: string;
@@ -46,6 +47,7 @@ function buildCandidates(data: AppData): Candidate[] {
       taskId: task.id,
       courseId: task.courseId,
       title: task.title,
+      type: task.type,
       minutes: Math.max(15, task.estimatedMinutes),
       priority: task.priority,
       deadline: task.deadline,
@@ -151,6 +153,7 @@ export function generateStudyPlan(data: AppData): { sessions: StudySession[]; co
         title: candidate.title,
         courseId: candidate.courseId,
         topic: candidate.topic,
+        type: candidate.type,
         date: day.date,
         startTime,
         minutes: chunk,

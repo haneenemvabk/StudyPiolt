@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { addDays, isoDate, makeId, monthKey, weekdayLabel } from '@/engine/dates';
+import { addDays, isoDate, makeId, monthKey, preferredStartTime, weekdayLabel } from '@/engine/dates';
 import { consumePlanningUsage, remainingAiActions } from '@/engine/limits';
 import { pickNowSession } from '@/engine/now';
 import { generateStudyPlan, moveSession, redistributeMissed, wouldExceedCapacity } from '@/engine/planner';
@@ -104,6 +104,10 @@ function migrate(raw: Record<string, unknown>): AppData {
     const course = item as Course & { progress?: number; schedule?: ClassMeeting[] };
     return { ...course, schedule: course.schedule ?? [], topics: course.topics ?? [] };
   }) : [];
+  const sessions = Array.isArray(raw.sessions) ? raw.sessions as StudySession[] : [];
+  const completedMinutesFromSessions = sessions
+    .filter((s) => s.status === 'completed')
+    .reduce((sum, s) => sum + s.minutes, 0);
   return {
     ...emptyData,
     ...raw,
@@ -111,7 +115,7 @@ function migrate(raw: Record<string, unknown>): AppData {
     courses,
     exams: Array.isArray(raw.exams) ? raw.exams as Exam[] : courses.filter((course) => course.examDate).map((course) => ({ id: makeId('exam'), courseId: course.id, title: `${course.code} exam`, date: course.examDate as string })),
     tasks: Array.isArray(raw.tasks) ? raw.tasks as Task[] : [],
-    sessions: Array.isArray(raw.sessions) ? raw.sessions as StudySession[] : [],
+    sessions,
     materials: Array.isArray(raw.materials) ? raw.materials as UploadedMaterial[] : [],
     availability: { ...emptyData.availability, ...(raw.availability as StudyAvailability | undefined) },
     notifications: { ...DEFAULT_NOTIFICATIONS, ...(raw.notifications as NotificationPrefs | undefined) },
@@ -119,7 +123,7 @@ function migrate(raw: Record<string, unknown>): AppData {
     aiUsage: { monthKey: monthKey(), planningActions: (raw.aiUsage as AppData['aiUsage'] | undefined)?.planningActions ?? 0 },
     onboardingComplete: Boolean(raw.onboardingComplete),
     isDemo: Boolean(raw.isDemo),
-    completedMinutes: Number(raw.completedMinutes ?? 0),
+    completedMinutes: completedMinutesFromSessions,
   };
 }
 
@@ -155,6 +159,7 @@ type ContextValue = AppData & {
   recordFeedback: (sessionId: string, feedback: SessionFeedback) => void;
   rescheduleAutomatically: (sessionId: string) => { ok: boolean; reason?: 'pro-required' | 'ai-limit' };
   rescheduleManually: (sessionId: string, date: string) => { ok: boolean; overload?: boolean; unavailableDay?: boolean };
+  moveToAvailableTime: (sessionId: string) => { ok: boolean; date?: string; time?: string; reason?: 'no-availability' };
   clearDemoData: () => void;
   resetAll: () => void;
   activateMockPro: (productId: 'studypilot_pro_monthly' | 'studypilot_pro_yearly') => void;
@@ -193,6 +198,7 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
   const update = (updater: (current: AppData) => AppData) => setData((current) => updater(current));
   const remainingMinutes = useMemo(() => data.tasks.filter((task) => task.status !== 'completed').reduce((sum, task) => sum + task.estimatedMinutes, 0), [data.tasks]);
   const recommendedSession = useMemo(() => pickNowSession(data), [data]);
+  const completedMinutes = useMemo(() => data.sessions.filter((s) => s.status === 'completed').reduce((sum, s) => sum + s.minutes, 0), [data.sessions]);
   const haptic = () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); };
 
   const completeOnboarding = (extra: Partial<AppData> = {}) => { update((current) => ({ ...current, ...extra, onboardingComplete: true })); haptic(); };
@@ -231,11 +237,8 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
   }));
   const updateTaskStatus = (id: string, status: TaskStatus) => {
     update((current) => {
-      const task = current.tasks.find((item) => item.id === id);
-      const delta = task && status === 'completed' && task.status !== 'completed' ? task.estimatedMinutes : 0;
       return {
         ...current,
-        completedMinutes: current.completedMinutes + delta,
         tasks: current.tasks.map((item) => item.id === id ? { ...item, status } : item),
         sessions: current.sessions.map((session) => session.taskId === id ? { ...session, status } : session),
       };
@@ -327,10 +330,8 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
   };
   const markSessionStatus = (id: string, status: TaskStatus) => update((current) => {
     const session = current.sessions.find((item) => item.id === id);
-    const minutes = session && status === 'completed' && session.status !== 'completed' ? session.minutes : 0;
     return {
       ...current,
-      completedMinutes: current.completedMinutes + minutes,
       sessions: current.sessions.map((item) => item.id === id ? { ...item, status } : item),
       tasks: session?.taskId ? current.tasks.map((task) => task.id === session.taskId ? { ...task, status } : task) : current.tasks,
     };
@@ -372,6 +373,36 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
     haptic();
     return result;
   };
+  const moveToAvailableTime = (sessionId: string) => {
+    let result: { ok: boolean; date?: string; time?: string; reason?: 'no-availability' } = { ok: true };
+    update((current) => {
+      const session = current.sessions.find((item) => item.id === sessionId);
+      if (!session) {
+        result = { ok: false, reason: 'no-availability' };
+        return current;
+      }
+      const today = isoDate();
+      const preferredTime = preferredStartTime(current.availability.preferredTime);
+      for (let offset = 1; offset <= 14; offset += 1) {
+        const candidate = addDays(offset);
+        if (candidate <= today) continue;
+        const wd = weekdayLabel(candidate);
+        if (!current.availability.days.includes(wd)) continue;
+        const existing = current.sessions.filter((s) => s.date === candidate && s.id !== sessionId && s.status !== 'completed' && s.status !== 'missed').reduce((sum, s) => sum + s.minutes, 0);
+        const cap = Math.round(current.availability.hoursPerDay * 60);
+        if (existing + session.minutes > cap) continue;
+        result = { ok: true, date: candidate, time: preferredTime };
+        return {
+          ...current,
+          sessions: current.sessions.map((s) => s.id === sessionId ? { ...s, date: candidate, startTime: preferredTime, status: s.status === 'missed' ? 'not_started' as const : s.status } : s),
+        };
+      }
+      result = { ok: false, reason: 'no-availability' };
+      return current;
+    });
+    haptic();
+    return result;
+  };
   const clearDemoData = () => update((current) => ({ ...emptyData, onboardingComplete: true, availability: current.availability, subscription: current.subscription }));
   const resetAll = () => { setData(emptyData); haptic(); };
   const activateMockPro = (productId: 'studypilot_pro_monthly' | 'studypilot_pro_yearly') => {
@@ -387,6 +418,7 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
       lastConflict,
       recommendedSession,
       remainingMinutes,
+      completedMinutes,
       remainingAiActions: remainingAiActions(data),
       completeOnboarding,
       loadDemoData,
@@ -414,6 +446,7 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
       recordFeedback,
       rescheduleAutomatically,
       rescheduleManually,
+      moveToAvailableTime,
       clearDemoData,
       resetAll,
       activateMockPro,

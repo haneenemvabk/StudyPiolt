@@ -64,6 +64,7 @@ export type StudySession = {
   title: string;
   courseId: string;
   topic?: string;
+  type?: TaskType;
   date: string;
   startTime?: string;
   minutes: number;

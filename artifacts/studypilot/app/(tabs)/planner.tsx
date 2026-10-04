@@ -10,14 +10,12 @@ import { TaskType, useStudyPilot } from '@/context/StudyPilotContext';
 import type { StudySession } from '@/models/types';
 
 const types: TaskType[] = ['Assignment', 'Exam prep', 'Reading', 'Lecture review', 'Practice', 'Project', 'Quiz prep', 'Custom'];
-const sessionTypes = ['Lecture', 'Practice', 'Revision', 'Exam Preparation', 'Reading', 'Assignment', 'Project', 'Other'] as const;
+const sessionTypes: TaskType[] = ['Assignment', 'Exam prep', 'Reading', 'Lecture review', 'Practice', 'Project', 'Quiz prep', 'Custom'];
 const durationOptions = [15, 25, 30, 45, 60, 90, 120];
-
-type SessionType = typeof sessionTypes[number];
 
 export default function PlannerScreen() {
   const colors = useColors();
-  const { courses, tasks, sessions, availability, generatePlan, addTask, markSessionStatus, rescheduleAutomatically, rescheduleManually, remainingAiActions, updateTaskStatus, deleteTask, updateSession, deleteSession } = useStudyPilot();
+  const { courses, tasks, sessions, availability, generatePlan, addTask, markSessionStatus, rescheduleAutomatically, rescheduleManually, moveToAvailableTime, remainingAiActions, updateTaskStatus, deleteTask, updateSession, deleteSession } = useStudyPilot();
   const [showAdd, setShowAdd] = useState(false);
   const [upgrade, setUpgrade] = useState(false);
   const [title, setTitle] = useState('');
@@ -92,11 +90,17 @@ export default function PlannerScreen() {
         </View>
         <Button label="Generate" icon="zap" onPress={onGenerate} />
       </View>
-      <View style={styles.weekRow}>{nextDays.map((item) => {
+      <View style={[styles.weekRow, { zIndex: 10 }]} pointerEvents="box-none">{nextDays.map((item) => {
         const selected = selectedDay === item.iso;
         const hasSessions = sessions.some((session) => session.date === item.iso);
         return (
-          <Pressable key={item.iso} onPress={() => onDayPress(item.iso)} style={[styles.dayCell, { backgroundColor: selected ? colors.navy : colors.card, borderColor: selected ? colors.primary : colors.border }]}>
+          <Pressable
+            key={item.iso}
+            onPress={() => onDayPress(item.iso)}
+            hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }}
+            pressRetentionOffset={{ top: 40, bottom: 40, left: 20, right: 20 }}
+            style={({ pressed }) => [styles.dayCell, { backgroundColor: selected ? colors.navy : colors.card, borderColor: selected ? colors.primary : colors.border, opacity: pressed ? 0.7 : 1 }]}
+          >
             <Text style={{ color: selected ? '#9fbbc2' : colors.mutedForeground, fontSize: 11, fontWeight: '700' }}>{item.day}</Text>
             <Text style={{ color: selected ? '#fff' : colors.foreground, fontSize: 17, fontWeight: '700' }}>{item.dateNum}</Text>
             <View style={[styles.dayDot, { backgroundColor: hasSessions ? colors.primary : 'transparent' }]} />
@@ -119,13 +123,14 @@ export default function PlannerScreen() {
                 <Text style={[styles.sessionTitle, { color: colors.foreground }]}>{session.title}</Text>
                 <Text style={[styles.sessionCourse, { color: course?.color ?? colors.primary }]}>{course?.code} · {session.reason}</Text>
                 <View style={styles.actions}>
-                  <Pressable onPress={() => router.push({ pathname: '/session', params: { sessionId: session.id, taskId: session.taskId ?? '' } })}><Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>Start</Text></Pressable>
-                  <Pressable onPress={() => markSessionStatus(session.id, 'completed')}><Text style={{ color: colors.success, fontWeight: '700', fontSize: 12 }}>Complete</Text></Pressable>
-                  <Pressable onPress={() => setEditingSession(session)}><Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>Edit</Text></Pressable>
-                  <Pressable onPress={() => rescheduleToTomorrow(session)}><Text style={{ color: colors.mutedForeground, fontWeight: '700', fontSize: 12 }}>Tomorrow</Text></Pressable>
-                  <Pressable onPress={() => setMovingId(session.id)}><Text style={{ color: colors.mutedForeground, fontWeight: '700', fontSize: 12 }}>Move</Text></Pressable>
-                  <Pressable onPress={() => missSession(session.id, course?.code ?? 'study')}><Text style={{ color: colors.warning, fontWeight: '700', fontSize: 12 }}>Missed</Text></Pressable>
-                  <Pressable onPress={() => confirmDeleteSession(session)}><Text style={{ color: colors.destructive, fontWeight: '700', fontSize: 12 }}>Delete</Text></Pressable>
+                  <Pressable hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }} onPress={() => router.push({ pathname: '/session', params: { sessionId: session.id, taskId: session.taskId ?? '' } })}><Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>Start</Text></Pressable>
+                  <Pressable hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }} onPress={() => markSessionStatus(session.id, 'completed')}><Text style={{ color: colors.success, fontWeight: '700', fontSize: 12 }}>Complete</Text></Pressable>
+                  <Pressable hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }} onPress={() => setEditingSession(session)}><Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>Edit</Text></Pressable>
+                  <Pressable hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }} onPress={() => rescheduleToTomorrow(session)}><Text style={{ color: colors.mutedForeground, fontWeight: '700', fontSize: 12 }}>Tomorrow</Text></Pressable>
+                  <Pressable hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }} onPress={() => { const r = moveToAvailableTime(session.id); if (!r.ok) Alert.alert('No availability', 'No available study day found in the next two weeks. Update your availability in Profile.'); else Alert.alert('Session moved', `Moved to ${weekdayLabel(r.date!)} at ${r.time}.`); }}><Text style={{ color: colors.mutedForeground, fontWeight: '700', fontSize: 12 }}>Available</Text></Pressable>
+                  <Pressable hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }} onPress={() => setMovingId(session.id)}><Text style={{ color: colors.mutedForeground, fontWeight: '700', fontSize: 12 }}>Move</Text></Pressable>
+                  <Pressable hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }} onPress={() => missSession(session.id, course?.code ?? 'study')}><Text style={{ color: colors.warning, fontWeight: '700', fontSize: 12 }}>Missed</Text></Pressable>
+                  <Pressable hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }} onPress={() => confirmDeleteSession(session)}><Text style={{ color: colors.destructive, fontWeight: '700', fontSize: 12 }}>Delete</Text></Pressable>
                 </View>
               </View>
             </View>
@@ -189,10 +194,10 @@ function SessionEditModal({ session, onClose, onSave, onDelete }: {
   onDelete: (session: StudySession) => void;
 }) {
   const colors = useColors();
-  const { courses, availability, rescheduleManually } = useStudyPilot();
+  const { courses, availability, rescheduleManually, moveToAvailableTime } = useStudyPilot();
   const [editTitle, setEditTitle] = useState('');
   const [editCourseId, setEditCourseId] = useState('');
-  const [editType, setEditType] = useState<SessionType>('Practice');
+  const [editType, setEditType] = useState<TaskType>('Practice');
   const [editMinutes, setEditMinutes] = useState(45);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
@@ -202,7 +207,7 @@ function SessionEditModal({ session, onClose, onSave, onDelete }: {
     if (session) {
       setEditTitle(session.title);
       setEditCourseId(session.courseId);
-      setEditType((sessionTypeMap[session.title] ?? 'Practice'));
+      setEditType(session.type ?? 'Practice');
       setEditMinutes(session.minutes);
       setEditDate(session.date);
       setEditTime(session.startTime ?? preferredTimeForAvailability(availability.preferredTime));
@@ -216,6 +221,7 @@ function SessionEditModal({ session, onClose, onSave, onDelete }: {
     const patch: Partial<StudySession> = {
       title: editTitle.trim() || session.title,
       courseId: editCourseId,
+      type: editType,
       minutes: editMinutes,
       date: editDate,
       startTime: editTime,
@@ -249,6 +255,13 @@ function SessionEditModal({ session, onClose, onSave, onDelete }: {
           <View style={styles.chips}>{['07:00', '09:00', '10:00', '11:00', '13:00', '14:00', '16:00', '18:00', '19:00', '20:00', '21:00'].map((item) => <Pressable key={item} onPress={() => setEditTime(item)} style={[styles.chip, { backgroundColor: editTime === item ? colors.secondary : colors.card, borderColor: editTime === item ? colors.primary : colors.border }]}><Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600' }}>{item}</Text></Pressable>)}</View>
           <View style={{ gap: 10 }}>
             <Button label="Save changes" onPress={save} icon="check" disabled={!editTitle.trim()} />
+            <Button label="Move to available time" variant="secondary" onPress={() => {
+              const result = moveToAvailableTime(session.id);
+              if (!result.ok) { Alert.alert('No availability', 'No available study day found in the next two weeks.'); return; }
+              setEditDate(result.date!);
+              setEditTime(result.time!);
+              Alert.alert('Session moved', `Moved to ${weekdayLabel(result.date!)} at ${result.time}.`);
+            }} icon="calendar" />
             <Button label="Reschedule to tomorrow" variant="secondary" onPress={() => {
               const tomorrow = addDays(1);
               const result = rescheduleManually(session.id, tomorrow);
@@ -262,17 +275,6 @@ function SessionEditModal({ session, onClose, onSave, onDelete }: {
     </Modal>
   );
 }
-
-const sessionTypeMap: Record<string, SessionType> = {
-  'Lecture': 'Lecture',
-  'Practice': 'Practice',
-  'Revision': 'Revision',
-  'Review': 'Revision',
-  'Exam prep': 'Exam Preparation',
-  'Reading': 'Reading',
-  'Assignment': 'Assignment',
-  'Project': 'Project',
-};
 
 function preferredTimeForAvailability(pref: string) {
   if (pref === 'Mornings') return '09:00';
