@@ -65,6 +65,32 @@ export default function ProgressScreen() {
           <Button label="See Pro" onPress={() => router.push('/subscription')} variant="secondary" />
         </View>
       )}
+      <View style={styles.headingRow}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Completed tasks</Text><Text style={[styles.sectionMeta, { color: colors.mutedForeground }]}>{tasks.filter((task) => task.status === 'completed').length} done</Text></View>
+      {tasks.filter((task) => task.status === 'completed').length ? (
+        <View style={{ gap: 10 }}>{tasks.filter((task) => task.status === 'completed').map((task) => {
+          const course = courses.find((item) => item.id === task.courseId);
+          const taskSessions = sessions.filter((session) => session.taskId === task.id);
+          const totalMinutes = taskSessions.filter((session) => session.status === 'completed').reduce((sum, session) => sum + session.minutes, 0);
+          return (
+            <View key={task.id} style={[styles.examCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={styles.examTop}>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={[styles.courseName, { color: colors.foreground }]}>{task.title}</Text>
+                  <Text style={[styles.examDays, { color: colors.mutedForeground }]}>{course?.code ?? 'No course'} · {task.type}</Text>
+                </View>
+                <Feather name="check-circle" size={18} color={colors.success} />
+              </View>
+              {totalMinutes > 0 ? <Text style={[styles.examReason, { color: colors.mutedForeground }]}>{Math.round(totalMinutes / 60 * 10) / 10}h study time logged</Text> : null}
+              <Text style={[styles.examReason, { color: colors.mutedForeground }]}>Due {task.deadline}</Text>
+            </View>
+          );
+        })}</View>
+      ) : (
+        <View style={[styles.examCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.courseName, { color: colors.foreground }]}>No completed tasks yet</Text>
+          <Text style={[styles.examReason, { color: colors.mutedForeground }]}>Complete a study session or mark a task as done to see it here.</Text>
+        </View>
+      )}
       <View style={styles.headingRow}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>Study insights</Text></View>
       {canViewAdvancedInsights(app) ? insights.map((item) => (
         <View key={item} style={[styles.examCard, { backgroundColor: colors.secondary, borderColor: colors.secondary }]}>

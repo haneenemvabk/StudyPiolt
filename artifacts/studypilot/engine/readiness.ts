@@ -7,10 +7,32 @@ export function courseProgress(data: Pick<AppData, 'tasks' | 'sessions'>, course
   const reviewed = course.topics.filter((topic) => topic.reviewed).length;
   const topicScore = course.topics.length ? reviewed / course.topics.length : 0;
   const courseTasks = data.tasks.filter((task) => task.courseId === course.id);
-  const assignmentScore = courseTasks.length ? courseTasks.filter((task) => task.status === 'completed').length / courseTasks.length : topicScore;
+  const assignmentScore = courseTasks.length ? courseTasks.filter((task) => task.status === 'completed').length / courseTasks.length : 0;
   const practiceSessions = data.sessions.filter((session) => session.courseId === course.id);
-  const practiceScore = practiceSessions.length ? practiceSessions.filter((session) => session.status === 'completed').length / practiceSessions.length : topicScore;
-  return Math.round((topicScore * 0.45 + assignmentScore * 0.35 + practiceScore * 0.2) * 100);
+  const practiceScore = practiceSessions.length ? practiceSessions.filter((session) => session.status === 'completed').length / practiceSessions.length : 0;
+
+  const hasTopics = course.topics.length > 0;
+  const hasTasks = courseTasks.length > 0;
+  const hasSessions = practiceSessions.length > 0;
+
+  let weights: { topic: number; assignment: number; practice: number };
+  if (hasTopics && hasTasks && hasSessions) {
+    weights = { topic: 0.45, assignment: 0.35, practice: 0.2 };
+  } else if (hasTopics && hasTasks) {
+    weights = { topic: 0.5, assignment: 0.5, practice: 0 };
+  } else if (hasTopics && hasSessions) {
+    weights = { topic: 0.6, practice: 0.4, assignment: 0 };
+  } else if (hasTasks && hasSessions) {
+    weights = { assignment: 0.6, practice: 0.4, topic: 0 };
+  } else if (hasTasks) {
+    weights = { assignment: 1, topic: 0, practice: 0 };
+  } else if (hasSessions) {
+    weights = { practice: 1, topic: 0, assignment: 0 };
+  } else {
+    weights = { topic: 1, assignment: 0, practice: 0 };
+  }
+  const score = topicScore * weights.topic + assignmentScore * weights.assignment + practiceScore * weights.practice;
+  return Math.round(score * 100);
 }
 
 export function examReadiness(data: AppData, course: Course) {

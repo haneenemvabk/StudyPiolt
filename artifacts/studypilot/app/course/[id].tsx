@@ -93,7 +93,20 @@ export default function CourseDetailScreen() {
       <Field label="New assignment" value={taskTitle} onChangeText={setTaskTitle} placeholder="Assignment 3" />
       <Button label="Add assignment" variant="secondary" onPress={() => { if (taskTitle.trim()) { app.addTask({ title: taskTitle.trim(), courseId: course.id, type: 'Assignment', deadline: addDays(7), estimatedMinutes: 55, priority: 'high', difficulty: 2 }); setTaskTitle(''); } }} />
       <Text style={[styles.section, { color: colors.foreground }]}>Uploaded materials</Text>
-      {materials.length ? materials.map((material) => <Text key={material.id} style={{ color: colors.mutedForeground }}>{material.filename} · {material.kind}</Text>) : <Text style={{ color: colors.mutedForeground }}>None yet. Analyze a PDF to add one after confirmation.</Text>}
+      {materials.length ? materials.map((material) => (
+        <View key={material.id} style={[styles.itemRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Feather name={material.kind === 'syllabus' ? 'book' : 'file-text'} size={16} color={colors.primary} />
+            <View>
+              <Text style={{ color: colors.foreground, fontWeight: '600' }}>{material.filename}</Text>
+              <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>{material.kind} · added {material.addedAt}</Text>
+            </View>
+          </View>
+          <Pressable onPress={() => Alert.alert('Delete this material?', undefined, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => app.deleteMaterial(material.id) }])}>
+            <Feather name="trash-2" size={16} color={colors.destructive} />
+          </Pressable>
+        </View>
+      )) : <Text style={{ color: colors.mutedForeground }}>No materials yet. Analyze a PDF to add syllabus topics or lecture material.</Text>}
       <Button label="Analyze PDF" icon="file-text" onPress={() => router.push('/material-analysis')} />
       <Button label="Delete course" variant="ghost" onPress={() => Alert.alert('Delete this course?', 'Tasks and sessions for this course will also be removed.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => { app.deleteCourse(course.id); router.back(); } }])} />
       <Modal visible={showEdit} animationType="slide" transparent onRequestClose={() => setShowEdit(false)}>

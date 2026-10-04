@@ -141,6 +141,9 @@ type ContextValue = AppData & {
   updateExam: (id: string, patch: Partial<Exam>) => void;
   deleteExam: (id: string) => void;
   deleteTask: (id: string) => void;
+  updateSession: (id: string, patch: Partial<StudySession>) => void;
+  deleteSession: (id: string) => void;
+  deleteMaterial: (id: string) => void;
   updateSessionNotes: (id: string, notes: string) => void;
   toggleTopic: (courseId: string, topicId: string) => void;
   addTopics: (courseId: string, topicNames: string[], source?: Course['topics'][number]['source']) => void;
@@ -271,6 +274,18 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
     tasks: current.tasks.filter((task) => task.id !== id),
     sessions: current.sessions.filter((session) => session.taskId !== id),
   }));
+  const deleteSession = (id: string) => update((current) => ({
+    ...current,
+    sessions: current.sessions.filter((session) => session.id !== id),
+  }));
+  const updateSession = (id: string, patch: Partial<StudySession>) => update((current) => ({
+    ...current,
+    sessions: current.sessions.map((session) => session.id === id ? { ...session, ...patch } : session),
+  }));
+  const deleteMaterial = (id: string) => update((current) => ({
+    ...current,
+    materials: current.materials.filter((material) => material.id !== id),
+  }));
   const updateSessionNotes = (id: string, notes: string) => update((current) => ({
     ...current,
     sessions: current.sessions.map((session) => session.id === id ? { ...session, notes } : session),
@@ -385,6 +400,9 @@ export function StudyPilotProvider({ children }: { children: React.ReactNode }) 
       updateExam,
       deleteExam,
       deleteTask,
+      updateSession,
+      deleteSession,
+      deleteMaterial,
       updateSessionNotes,
       toggleTopic,
       addTopics,
